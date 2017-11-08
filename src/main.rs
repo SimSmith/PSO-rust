@@ -18,13 +18,17 @@ fn main() {
     let w_lower_bound = 0.4;
     let v_max = 0.15;
     //let dimensions = 2;
-    let swarm_best_position = (0.0, 0.0); // x^sb
+    let mut swarm_best_position = (0.0, 0.0); // x^sb
     let threshold = 0.00001;
 
     let mut particles = initialize_particles(n_particles);
-    let p = &particles[0];
-    println!("One particle: {:?}", p);
-    println!("and its value: {:?}", evalutate_particle(p));
+    println!("One particle: {:?}", particles[0]);
+    // Evaluate each particle in the swarm, i.e.compute f(x_i), i=1,...,N.
+    let particle_fitnesses: Vec<f32> = particles.iter()
+                                            .map(|p| evalutate_fitness(p.pos)).collect();
+    let particle_best_finesses: Vec<f32> = particles.iter()
+                                            .map(|p| evalutate_fitness(p.best_pos)).collect();
+    println!("and its finess: {:?}", particle_fitnesses[0]);  
 }
 
 type Vector = (f32, f32);
@@ -70,16 +74,29 @@ fn initialize_particles(n_particles: usize) -> Particles{
     particles
 }
 
-// Evaluate each particle in the swarm, i.e.compute f(x_i), i=1,...,N.
-fn evalutate_particle(p: &Particle) -> f32 {
-    let (x, y) = p.pos;
-
+fn evalutate_fitness((x, y): Vector) -> f32 {
     (x*x + y - 11.0).powi(2) + (x + y*y - 7.0).powi(2)
 }
 
 // Update the best position of each particle, and the global best position.
-fn update_best_postions(particles: &mut Particles, swarm_best_position: &mut Vector, fitnesses: Vec<f32>) {
-    unimplemented!();
+fn update_best_postions(
+        particles: &mut Particles,
+        swarm_best_position: &mut Vector,
+        f_particles: &Vec<f32>,
+        f_best_particles: &Vec<f32>,
+) {
+    let mut f_swarm_best = evalutate_fitness(*swarm_best_position);
+
+    for i in 0..particles.len(){
+        if f_particles[i] > f_best_particles[i] {
+            particles[i].best_pos = particles[i].pos;
+
+            if f_particles[i] > f_swarm_best{
+                *swarm_best_position = particles[i].pos;
+                f_swarm_best = evalutate_fitness(*swarm_best_position);
+            }
+        }
+    }
 }
 
 // Update particle velocities and positions
