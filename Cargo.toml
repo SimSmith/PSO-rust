@@ -1,0 +1,7 @@
+[package]
+name = "pso"
+version = "0.1.0"
+authors = ["Smith <simonsm@student.chalmers.se>"]
+
+[dependencies]
+rand = "0.3.18"
