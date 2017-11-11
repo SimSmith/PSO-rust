@@ -7,25 +7,25 @@ fn main() {
     println!("Hello, particle world!");
 
     let n_particles = 50; // 20-50
-    let x_max = 5;
-    let x_min = -x_max;
-    let c1 = 1.0;
-    let c2 = 0.1;
-    let alpha = 1;
-    let t_delta = 1;
+    const X_MAX: f32 = 5.0;
+    const X_MIN: f32 = -5.0;
+    const C1: f32 = 1.0;
+    const C2: f32 = 0.1;
+    const ALPHA: f32 = 1.0;
+    const T_DELTA: f32 = 1.0;
     let mut w = 1.5; // Inertia weight
-    let beta = 0.99; // to reduce w
-    let w_lower_bound = 0.4;
-    let v_max = 0.15;
-    //let dimensions = 2;
+    const BETA: f32 = 0.99; // to reduce w
+    const W_LOWER_BOUND: f32 = 0.4;
+    const V_MAX: f32 = 0.15;
+    //const dimensions = 2;
     let mut swarm_best_position = (0.0, 4.0); // x^sb
-    //let threshold = 0.00001;
-    let iterations = 10_000;
+    //const threshold = 0.00001;
+    const ITERATIONS: u32 = 10_000;
 
     // Init
-    let mut particles = initialize_particles(n_particles);
+    let mut particles = initialize_particles(n_particles, X_MAX, X_MIN, ALPHA, T_DELTA);
     
-    for _ in 0..iterations{
+    for _ in 0..ITERATIONS{
         // Evaluate each particle in the swarm, i.e.compute f(x_i), i=1,...,N.
         let particle_fitnesses: Vec<f32> = particles.iter()
                                                 .map(|p| evalutate_fitness(p.pos)).collect();
@@ -40,7 +40,7 @@ fn main() {
         w = update_position_and_velocity(
             &mut particles,
             &swarm_best_position,
-            c1, c2, v_max, w, beta, w_lower_bound);
+            T_DELTA, C1, C2, V_MAX, w, BETA, W_LOWER_BOUND);
     }
     println!("Best position: {:?}\nwith fitness = {:?}", swarm_best_position, evalutate_fitness(swarm_best_position));
 }
@@ -58,13 +58,11 @@ struct Particle {
 
 
 // Initialize positions and velocities of the particles p_i
-fn initialize_particles(n_particles: usize) -> Particles{
+fn initialize_particles(n_particles: usize
+    , x_max: f32, x_min: f32, alpha: f32, t_delta: f32
+) -> Particles{
     let mut particles: Particles = Vec::with_capacity(n_particles);
     let mut rng = rand::thread_rng();
-    const X_MAX: f32 = 5.0;
-    const X_MIN: f32 = -5.0;
-    const ALPHA: f32 = 1.0;
-    const T_DELTA: f32 = 1.0;
 
     for _ in 0..n_particles{
         let r1: f32 = rng.gen();
@@ -72,12 +70,12 @@ fn initialize_particles(n_particles: usize) -> Particles{
         let r3: f32 = rng.gen();
         let r4: f32 = rng.gen();
 
-        // xij = X_MIN +r(X_MAX - X_MIN)
-        let x1 = X_MIN + r1*(X_MAX - X_MIN);
-        let x2 = X_MIN + r2*(X_MAX - X_MIN);
-        // vij = α/delta_t(-(X_MAX-X_MIN)/2 + r(X_MAX-X_MIN))
-        let v1 = ALPHA/T_DELTA*(-(X_MAX-X_MIN)/2.0 + r3*(X_MAX-X_MIN));
-        let v2 = ALPHA/T_DELTA*(-(X_MAX-X_MIN)/2.0 + r4*(X_MAX-X_MIN));
+        // xij = x_min +r(x_max - x_min)
+        let x1 = x_min + r1*(x_max - x_min);
+        let x2 = x_min + r2*(x_max - x_min);
+        // vij = α/delta_t(-(x_max-x_min)/2 + r(x_max-x_min))
+        let v1 = alpha/t_delta*(-(x_max-x_min)/2.0 + r3*(x_max-x_min));
+        let v2 = alpha/t_delta*(-(x_max-x_min)/2.0 + r4*(x_max-x_min));
         
         particles.push(
             Particle {
@@ -123,6 +121,7 @@ fn update_best_postions(
 fn update_position_and_velocity(
     particles: &mut Particles,
     swarm_best_position: &Vector,
+    t_delta: f32,
     c1: f32,
     c2: f32,
     v_max: f32,
@@ -131,25 +130,24 @@ fn update_position_and_velocity(
     w_lower_bound: f32,
 ) -> f32{
     let mut rng = rand::thread_rng();
-    const T_DELTA: f32 = 1.0;
 
     for i in 0..particles.len(){
         let q: f32 = rng.gen();
         let r: f32 = rng.gen();
         // vij = w*vij + c1*q(xijPB -xij)/deltaT +  c2*r(xjSB - xij)/deltaT
         let v_i_1 = w*particles[i].vel.0
-            + c1*q*(particles[i].best_pos.0 - particles[i].pos.0)/T_DELTA
-            + c2*r*(swarm_best_position.0-particles[i].pos.0)/T_DELTA;
+            + c1*q*(particles[i].best_pos.0 - particles[i].pos.0)/t_delta
+            + c2*r*(swarm_best_position.0-particles[i].pos.0)/t_delta;
         let v_i_2 = w*particles[i].vel.1
-            + c1*q*(particles[i].best_pos.1 - particles[i].pos.1)/T_DELTA
-            + c2*r*(swarm_best_position.1-particles[i].pos.1)/T_DELTA;
+            + c1*q*(particles[i].best_pos.1 - particles[i].pos.1)/t_delta
+            + c2*r*(swarm_best_position.1-particles[i].pos.1)/t_delta;
         // restrict |vij| < vMax
         let v_i_1 = if v_i_1.abs() < v_max {v_i_1} else {v_max};
         let v_i_2 = if v_i_2.abs() < v_max {v_i_2} else {v_max};
         particles[i].vel = (v_i_1, v_i_2);
         // xij = xij + vij*deltaT
-        let x_i_1 = particles[i].pos.0 + v_i_1*T_DELTA;
-        let x_i_2 = particles[i].pos.1 + v_i_2*T_DELTA;
+        let x_i_1 = particles[i].pos.0 + v_i_1*t_delta;
+        let x_i_2 = particles[i].pos.1 + v_i_2*t_delta;
         particles[i].pos = (x_i_1, x_i_2);
     }
     // update inetia weight
