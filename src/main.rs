@@ -6,7 +6,7 @@ use rand::Rng;
 fn main() {
     println!("Hello, particle world!");
 
-    let n_particles = 50; // 20-50
+    let n_particles = 40; // 20-50
     const X_MAX: f32 = 5.0;
     const X_MIN: f32 = -5.0;
     const C1: f32 = 1.0;
@@ -18,31 +18,38 @@ fn main() {
     const W_LOWER_BOUND: f32 = 0.4;
     const V_MAX: f32 = 0.15;
     //const dimensions = 2;
-    let mut swarm_best_position = (0.0, 4.0); // x^sb
-    //const threshold = 0.00001;
-    const ITERATIONS: u32 = 10_000;
+    let mut swarm_best_position = (X_MAX, X_MAX); // x^sb
+    const THRESHOLD: f32 = 0.0001;
+    const ITERATIONS: u32 = 100_000;
 
     // Init
     let mut particles = initialize_particles(n_particles, X_MAX, X_MIN, ALPHA, T_DELTA);
     
-    for _ in 0..ITERATIONS{
+    for iter in 0..ITERATIONS{
         // Evaluate each particle in the swarm, i.e.compute f(x_i), i=1,...,N.
         let particle_fitnesses: Vec<f32> = particles.iter()
-                                                .map(|p| evalutate_fitness(p.pos)).collect();
+                                                .map(|p| evaluate_fitness(p.pos)).collect();
         let particle_best_finesses: Vec<f32> = particles.iter()
-                                                .map(|p| evalutate_fitness(p.best_pos)).collect();
+                                                .map(|p| evaluate_fitness(p.best_pos)).collect();
         
         // Update best positions
         update_best_postions(&mut particles, &mut swarm_best_position,
-            &particle_fitnesses, &particle_best_finesses);
+            &particle_fitnesses, &particle_best_finesses, iter);
 
         // Update positions and velocities
         w = update_position_and_velocity(
             &mut particles,
             &swarm_best_position,
             T_DELTA, C1, C2, V_MAX, w, BETA, W_LOWER_BOUND);
+
+        if 1.0 / evaluate_fitness(swarm_best_position) < THRESHOLD {
+            println!("Early exit at iteration #{:?}", iter);
+            break;
+        }
     }
-    println!("Best position: {:?}\nwith fitness = {:?}", swarm_best_position, evalutate_fitness(swarm_best_position));
+    let f_best = evaluate_fitness(swarm_best_position);
+    println!("Best position: {:?}\n, with fitness = {:?}\n, and function value = {:?}"
+        , swarm_best_position, f_best, 1.0/f_best);
 }
 
 
@@ -89,8 +96,8 @@ fn initialize_particles(n_particles: usize
 }
 
 
-fn evalutate_fitness((x, y): Vector) -> f32 {
-    (x*x + y - 11.0).powi(2) + (x + y*y - 7.0).powi(2)
+fn evaluate_fitness((x, y): Vector) -> f32 {
+    1.0 / ((x*x + y - 11.0).powi(2) + (x + y*y - 7.0).powi(2))
 }
 
 
@@ -100,17 +107,19 @@ fn update_best_postions(
         swarm_best_position: &mut Vector,
         f_particles: &Vec<f32>,
         f_best_particles: &Vec<f32>,
+        iteration: u32,
 ) {
-    let mut f_swarm_best = evalutate_fitness(*swarm_best_position);
+    let mut f_swarm_best = evaluate_fitness(*swarm_best_position);
 
     for i in 0..particles.len(){
-        if f_particles[i] < f_best_particles[i] {
+        if f_particles[i] > f_best_particles[i] {
             particles[i].best_pos = particles[i].pos;
 
-            if f_particles[i] < f_swarm_best{
+            if f_particles[i] > f_swarm_best{
                 *swarm_best_position = particles[i].pos;
-                f_swarm_best = evalutate_fitness(*swarm_best_position);
-                println!("New best is {:?} at position {:?}", f_swarm_best, swarm_best_position);
+                f_swarm_best = evaluate_fitness(*swarm_best_position);
+                println!("Iter #{:?}: New best is {:?} at position {:?}"
+                   , iteration, f_swarm_best, swarm_best_position);
             }
         }
     }
